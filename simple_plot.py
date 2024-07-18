@@ -10,7 +10,7 @@ wavelength, spectra = df[x_name], df[y_name] # Get values
 
 # Plot the data
 plt.figure(figsize=(8, 6))
-plt.plot(wavelength, spectra[::-1], marker='o', linestyle='-', color='b', label='Data')
+plt.plot(wavelength, spectra, marker='o', linestyle='-', color='b', label='Data')
 
 # Adding title and labels
 plt.title('X vs Y Plot')
@@ -22,6 +22,7 @@ plt.grid(True)
 
 # Adding legend
 plt.legend()
+plt.gca().invert_xaxis()
 
 # Show the plot
 plt.show()
