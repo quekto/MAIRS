@@ -1,10 +1,15 @@
-from LoadSpectrum import read_spa
-import pathlib
-import matplotlib.pyplot as plt
-import pandas as pd
+import argparse
 import os
+import pathlib
+import sys
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
-import sys, time
+import pandas as pd
+
+from LoadSpectrum import read_spa
+
 
 def read_spa(filepath):
     '''
@@ -12,7 +17,7 @@ def read_spa(filepath):
     Read a file `*.spa`
     ----------
     Output
-    Return spectra, wavelenght (nm), titles
+    Return spectra, wavenumber (cm-1), titles
     '''
     with open(filepath, 'rb') as f:
         f.seek(564)
@@ -40,29 +45,40 @@ def read_spa(filepath):
         Spectra = np.fromfile(f, np.single, Spectrum_Pts)
     return Spectra, Wavenumbers, SpectraTitles
 
-basepath = '.'
+
+# Create the parser
+parser = argparse.ArgumentParser(description="Process some directory.")
+# Add the positional argument for the target directory
+parser.add_argument('directory', nargs='?', default='.', help='Target directory (default: current directory)')
+# Parse the command-line arguments
+args = parser.parse_args()
+# Get the directory argument
+basepath = args.directory
+
 # Get paths of .spa, .SPA files.
 paths = [str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))] + \
     [str(x) for x in list(pathlib.Path(basepath).rglob('*.SPA'))]
-print('Files detected: {}'.format(len(paths)))
+print('Number of spa files detected: {}'.format(len(paths)))
 
 length = len(paths)
 counter = 0
 for path in paths:
-  counter += 1
-  
   spectra_tmp, wavenumber_tmp, title_tmp = read_spa(path)
   df = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
 
+  # Set output path
+  # Remove extension with `splitext` and change it to csv.
   csv_path = os.path.splitext(path)[0] + '.csv'
 
+  # Convert df -> csv
   df.to_csv(csv_path, index=False)
 
+  counter += 1
   if counter % 100 == 0:
     sys.stdout.write(f"\r{counter} / {length} files read.")
-    sys.stdout.flush()
+    # sys.stdout.flush()
     # time.sleep(0.5)
-sys.stdout.write(f"\rAll {length} files read!")
+sys.stdout.write(f"\rAll {length} files read!\n")
 
 # # Plot the data
 # plt.figure(figsize=(8, 6))
@@ -76,6 +92,11 @@ sys.stdout.write(f"\rAll {length} files read!")
 # # Adding grid
 # plt.grid(True)
 
+# # Adding legend
+# plt.legend()
+
+# # Show the plot
+# plt.show()
 # # Adding legend
 # plt.legend()
 
