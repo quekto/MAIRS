@@ -22,4 +22,4 @@ python convert_csv_to_spa.py target/directory/
 
 GNU General Public License v3.0 or later
 
-See COPYING to see the full text.
+See [LICENSE](https://github.com/quekto/MAIRS/blob/main/LICENSE) to see the full text.
