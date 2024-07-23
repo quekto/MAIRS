@@ -9,7 +9,7 @@ import sys, time
 def read_spa(filepath):
     '''
     Input
-    Read a file (string) *.spa
+    Read a file `*.spa`
     ----------
     Output
     Return spectra, wavelenght (nm), titles
@@ -41,7 +41,9 @@ def read_spa(filepath):
     return Spectra, Wavenumbers, SpectraTitles
 
 basepath = '.'
-paths = [str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))]
+# Get paths of .spa, .SPA files.
+paths = [str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))] + \
+    [str(x) for x in list(pathlib.Path(basepath).rglob('*.SPA'))]
 print('Files detected: {}'.format(len(paths)))
 
 length = len(paths)
@@ -60,7 +62,7 @@ for path in paths:
     sys.stdout.write(f"\r{counter} / {length} files read.")
     sys.stdout.flush()
     # time.sleep(0.5)
-
+sys.stdout.write(f"\rAll {length} files read!")
 
 # # Plot the data
 # plt.figure(figsize=(8, 6))
