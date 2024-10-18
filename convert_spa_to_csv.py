@@ -1,7 +1,7 @@
 # ==============
-# Version 2.0.0
+# Version 2.1.0
 # Created by Ian Fitch Mochida at University of Tokyo
-# 2024-10-18
+# 2024-10-18 19:31 - 2.1.0 : Modified the data structure from accessing directories every time from holding a tree of the initial directory structure.
 # ==============
 
 import argparse
@@ -11,8 +11,6 @@ import sys
 import time
 from pathlib import Path, PurePath
 
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from LoadSpectrum import read_spa
@@ -35,7 +33,7 @@ def parse_new() -> pathlib.PosixPath:
 
     return basepath
 
-def write_to_csv(path: pathlib.PosixPath, flag:int):
+def write_to_csv(path: str):
     global cnt
     spectra_tmp, wavenumber_tmp, title_tmp = read_spa(path)
     df = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
@@ -48,11 +46,11 @@ def write_to_csv(path: pathlib.PosixPath, flag:int):
     df.to_csv(csv_path, index=False)
 
     cnt += 1
-    if flag == 2: # Concat IP and OP when both detected
-        csv_path_IPOP:str = str(path)[:-8] + 'IPOPow.csv'
+    if PurePath(path).stem[-4:] == "IPow":
+        csv_path_IPOP:str = path[:-8] + 'IPOPow.csv'
 
-        spa_path_IP:str   = str(path)[:-8] + 'IPow.spa'
-        spa_path_OP:str   = str(path)[:-8] + 'OPow.spa'
+        spa_path_IP:str   = path[:-8] + 'IPow.spa'
+        spa_path_OP:str   = path[:-8] + 'OPow.spa'
         
         # IP
         spectra_tmp, wavenumber_tmp, title_tmp = read_spa(spa_path_IP)
@@ -66,28 +64,41 @@ def write_to_csv(path: pathlib.PosixPath, flag:int):
 
         cnt += 1
 
-def recursive(path: pathlib.PosixPath) -> None:
+def recursive(tree: dict, parent_dir:str) -> None:
     ipop_flag: int = 0
-    for child in path.iterdir():
-        if child.is_dir(): # First go down if still directory
-            recursive(child)
-        elif child.suffix not in ['.spa', '.SPA']: # Skip file other than spa
+    for child in tree:
+        dir = parent_dir + '/' + child
+        if tree[child]: # If its a directory, True.
+            recursive(tree[child], dir)
+        elif PurePath(child).suffix not in ['.spa', '.SPA']: # Skip file other than spa
             continue
         else:
-            if child.stem[-4:] in ['IPow', 'OPow']: # Check if the file is IPow or OPow
-                ipop_flag += 1
-            write_to_csv(child, ipop_flag)
-            if ipop_flag == 2:
-                ipop_flag = 0
+            write_to_csv(dir)
 
-    
     sys.stdout.write(f'\r{cnt} files processed.'.ljust(30))
     sys.stdout.flush()
+
+def build_directory_tree(root_dir) -> dict:
+    tree = {}
+    for entry in os.listdir(root_dir):
+        path = os.path.join(root_dir, entry)
+        if os.path.isdir(path):
+            tree[entry] = build_directory_tree(path)  # Recursively build tree for subdirectories
+        else:
+            tree[entry] = None  # Files are leaf nodes
+    return tree
+
+# # Example Usage:
+# root_directory = "2024"
+# directory_tree = build_directory_tree(root_directory)
+# print(directory_tree["0912_20K_H2O_32min/"])
+
 
 def main():
     global cnt
     basepath: pathlib.PosixPath = parse_new() # 大元のディレクトリ
-    recursive(basepath) # 再帰的に下っていき、spaファイルにたどり着いたら変換
+    tree = build_directory_tree(basepath)
+    recursive(tree, str(basepath)) # 再帰的に下っていき、spaファイルにたどり着いたら変換
 
     sys.stdout.write(f'\r{cnt} files created!'.ljust(30))
     sys.stdout.flush()
