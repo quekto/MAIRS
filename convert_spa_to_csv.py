@@ -2,6 +2,7 @@
 # Version 2.1.0
 # Created by Ian Fitch Mochida at University of Tokyo
 # 2024-10-18 19:31 - 2.1.0 : Modified the data structure from accessing directories every time from holding a tree of the initial directory structure.
+# 2024-10-18 19:31 - 2.1.1 : Counter modification.
 # ==============
 
 import argparse
@@ -16,8 +17,10 @@ import pandas as pd
 from LoadSpectrum import read_spa
 
 cnt: int = 0
+file_count: int = 0
 
 def parse_new() -> pathlib.PosixPath: 
+    global file_count
     # Create the parser
     parser = argparse.ArgumentParser(description="Process some directory.")
     # Add the positional argument for the target directory
@@ -25,7 +28,7 @@ def parse_new() -> pathlib.PosixPath:
     # Parse the command-line arguments
     args = parser.parse_args()
     # Get the directory argument
-    basepath = Path(args.directory) # Parent directory
+    basepath:pathlib.PosixPath = Path(args.directory) # Parent directory
 
     file_count =len([str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))] + \
         [str(x) for x in list(pathlib.Path(basepath).rglob('*.SPA'))])
@@ -34,7 +37,7 @@ def parse_new() -> pathlib.PosixPath:
     return basepath
 
 def write_to_csv(path: str):
-    global cnt
+    global cnt, file_count
     spectra_tmp, wavenumber_tmp, title_tmp = read_spa(path)
     df = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
 
@@ -46,6 +49,10 @@ def write_to_csv(path: str):
     df.to_csv(csv_path, index=False)
 
     cnt += 1
+    if cnt % 10 == 0:
+        sys.stdout.write(f'\r{cnt}/{file_count} files processed.'.ljust(30))
+        sys.stdout.flush()
+
     if PurePath(path).stem[-4:] == "IPow":
         csv_path_IPOP:str = path[:-8] + 'IPOPow.csv'
 
@@ -63,6 +70,9 @@ def write_to_csv(path: str):
         df_IPOP.to_csv(csv_path_IPOP, index=False)
 
         cnt += 1
+        if cnt % 10 == 0:
+            sys.stdout.write(f'\r{cnt}/{file_count} files processed.'.ljust(30))
+            sys.stdout.flush()
 
 def recursive(tree: dict, parent_dir:str) -> None:
     ipop_flag: int = 0
@@ -75,9 +85,6 @@ def recursive(tree: dict, parent_dir:str) -> None:
         else:
             write_to_csv(dir)
 
-    sys.stdout.write(f'\r{cnt} files processed.'.ljust(30))
-    sys.stdout.flush()
-
 def build_directory_tree(root_dir) -> dict:
     tree = {}
     for entry in os.listdir(root_dir):
@@ -87,12 +94,6 @@ def build_directory_tree(root_dir) -> dict:
         else:
             tree[entry] = None  # Files are leaf nodes
     return tree
-
-# # Example Usage:
-# root_directory = "2024"
-# directory_tree = build_directory_tree(root_directory)
-# print(directory_tree["0912_20K_H2O_32min/"])
-
 
 def main():
     global cnt
