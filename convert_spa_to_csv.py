@@ -1,8 +1,15 @@
+# ==============
+# Version 2.0.0
+# Created by Ian Fitch Mochida at University of Tokyo
+# 2024-10-18
+# ==============
+
 import argparse
 import os
 import pathlib
 import sys
 import time
+from pathlib import Path, PurePath
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,75 +17,87 @@ import pandas as pd
 
 from LoadSpectrum import read_spa
 
+cnt: int = 0
 
-def read_spa(filepath):
-    '''
-    Input
-    Read a file `*.spa`
-    ----------
-    Output
-    Return spectra, wavenumber (cm-1), titles
-    '''
-    with open(filepath, 'rb') as f:
-        f.seek(564)
-        Spectrum_Pts = np.fromfile(f, np.int32, 1)[0]
-        f.seek(30)
-        SpectraTitles = np.fromfile(f, np.uint8, 255)
-        SpectraTitles = ''.join([chr(x) for x in SpectraTitles if x != 0])
+def parse_new() -> pathlib.PosixPath: 
+    # Create the parser
+    parser = argparse.ArgumentParser(description="Process some directory.")
+    # Add the positional argument for the target directory
+    parser.add_argument('directory', nargs='?', default='.', help='Target directory (default: current directory)')
+    # Parse the command-line arguments
+    args = parser.parse_args()
+    # Get the directory argument
+    basepath = Path(args.directory) # Parent directory
 
-        f.seek(576)
-        Max_Wavenum = np.fromfile(f, np.single, 1)[0]
-        Min_Wavenum = np.fromfile(f, np.single, 1)[0]
-        # print(Min_Wavenum, Max_Wavenum, Spectrum_Pts)
-        Wavenumbers = np.flip(np.linspace(
-            Min_Wavenum, Max_Wavenum, Spectrum_Pts))
+    file_count =len([str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))] + \
+        [str(x) for x in list(pathlib.Path(basepath).rglob('*.SPA'))])
+    print(f'Number of spa files detected: {file_count}')
 
-        f.seek(288)
+    return basepath
 
-        Flag = 0
-        while Flag != 3:
-            Flag = np.fromfile(f, np.uint16, 1)
+def write_to_csv(path: pathlib.PosixPath, flag:int):
+    global cnt
+    spectra_tmp, wavenumber_tmp, title_tmp = read_spa(path)
+    df = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
 
-        DataPosition = np.fromfile(f, np.uint16, 1)
-        f.seek(DataPosition[0])
+    # Set output path
+    # Remove extension with `splitext` and change it to csv.
+    csv_path =  PurePath(path).parent.joinpath(PurePath(path).stem + '.csv')
 
-        Spectra = np.fromfile(f, np.single, Spectrum_Pts)
-    return Spectra, Wavenumbers, SpectraTitles
+    # Convert df -> csv
+    df.to_csv(csv_path, index=False)
 
+    cnt += 1
+    if flag == 2: # Concat IP and OP when both detected
+        csv_path_IPOP:str = str(path)[:-8] + 'IPOPow.csv'
 
-# Create the parser
-parser = argparse.ArgumentParser(description="Process some directory.")
-# Add the positional argument for the target directory
-parser.add_argument('directory', nargs='?', default='.', help='Target directory (default: current directory)')
-# Parse the command-line arguments
-args = parser.parse_args()
-# Get the directory argument
-basepath = args.directory
+        spa_path_IP:str   = str(path)[:-8] + 'IPow.spa'
+        spa_path_OP:str   = str(path)[:-8] + 'OPow.spa'
+        
+        # IP
+        spectra_tmp, wavenumber_tmp, title_tmp = read_spa(spa_path_IP)
+        df_IP = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
+        # OP
+        spectra_tmp, wavenumber_tmp, title_tmp = read_spa(spa_path_OP)
+        df_OP = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
 
-# Get paths of .spa, .SPA files.
-paths = [str(x) for x in list(pathlib.Path(basepath).rglob('*.spa'))] + \
-    [str(x) for x in list(pathlib.Path(basepath).rglob('*.SPA'))]
-print('Number of spa files detected: {}'.format(len(paths)))
+        df_IPOP = pd.concat([df_IP, df_OP], axis=1)
+        df_IPOP.to_csv(csv_path_IPOP, index=False)
 
-length = len(paths)
-counter = 0
-for path in paths:
-  spectra_tmp, wavenumber_tmp, title_tmp = read_spa(path)
-  df = pd.DataFrame({"wavenumber": wavenumber_tmp, "spectra": spectra_tmp})
+        cnt += 1
 
-  # Set output path
-  # Remove extension with `splitext` and change it to csv.
-  csv_path = os.path.splitext(path)[0] + '.csv'
+def recursive(path: pathlib.PosixPath) -> None:
+    ipop_flag: int = 0
+    for child in path.iterdir():
+        if child.is_dir(): # First go down if still directory
+            recursive(child)
+        elif child.suffix not in ['.spa', '.SPA']: # Skip file other than spa
+            continue
+        else:
+            if child.stem[-4:] in ['IPow', 'OPow']: # Check if the file is IPow or OPow
+                ipop_flag += 1
+            write_to_csv(child, ipop_flag)
+            if ipop_flag == 2:
+                ipop_flag = 0
 
-  # Convert df -> csv
-  df.to_csv(csv_path, index=False)
+    
+    sys.stdout.write(f'\r{cnt} files processed.'.ljust(30))
+    sys.stdout.flush()
 
-  counter += 1
-  if counter % 100 == 0:
-    sys.stdout.write(f"\r{counter} / {length} files read.")
-    # sys.stdout.flush()
-    # time.sleep(0.5)
-sys.stdout.write(f"\rAll {length} files read!\n")
+def main():
+    global cnt
+    basepath: pathlib.PosixPath = parse_new() # 大元のディレクトリ
+    recursive(basepath) # 再帰的に下っていき、spaファイルにたどり着いたら変換
+
+    sys.stdout.write(f'\r{cnt} files created!'.ljust(30))
+    sys.stdout.flush()
+
+    return
+
+if __name__ == "__main__":
+    main()
+    print() # Cleaning up stdout
+
 
 # # Plot the data
 # plt.figure(figsize=(8, 6))

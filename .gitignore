@@ -1,3 +1,8 @@
 */
 *.spa
 *.SPA
+*.csv
+*.ppt
+*.pptx
+*.xlsx
+.DS_Store
