@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def read_spa(filepath):
     '''
     Input
@@ -31,4 +32,4 @@ def read_spa(filepath):
         f.seek(DataPosition[0])
 
         Spectra = np.fromfile(f, np.single, Spectrum_Pts)
-    return Spectra, 1e7/Wavenumbers, SpectraTitles
+    return Spectra, Wavenumbers, SpectraTitles
