@@ -3,6 +3,7 @@
 # Created by Ian Fitch Mochida at University of Tokyo
 # 2024-10-18 19:31 - 2.1.0 : Modified the data structure from accessing directories every time from holding a tree of the initial directory structure.
 # 2024-10-18 19:31 - 2.1.1 : Counter modification.
+# 2024-10-21 - 2.1.2 : Fixed bug where output within LoadSpectrum of wavenumber was not wavenumber.
 # ==============
 
 import argparse
